@@ -23,7 +23,11 @@ import { Monitor, Share2, Sparkles, Maximize2 } from 'lucide-react';
 export const WhiteboardRoomPage: React.FC = () => {
   const { id: roomId = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { displayName, userColor } = useUserStore();
+  const { displayName, userColor, currentUser } = useUserStore();
+
+  const actualUsername = currentUser?.username || displayName;
+  const actualColor = userColor;
+  const actualUserId = currentUser?.id || 'local-user';
 
   // Active View: Whiteboard [W], Screen Share [S], or Split View
   const [activeView, setActiveView] = useState<ActiveMeetingView>('whiteboard');
@@ -51,11 +55,18 @@ export const WhiteboardRoomPage: React.FC = () => {
     },
   ]);
 
+  // Record user joining room in MySQL
+  useEffect(() => {
+    if (roomId) {
+      apiService.joinRoom(roomId).catch(() => {});
+    }
+  }, [roomId]);
+
   // 1. WebSocket Signaling status
   const { isConnected: isWsConnected, selfPeerId } = useWebSocket();
 
   // 2. Room membership and presence
-  const { roomDetails, participants, leave } = useRoom(roomId, displayName);
+  const { roomDetails, participants, leave } = useRoom(roomId, actualUsername);
 
   // 3. Local Camera, Microphone & Screen Share
   const {
@@ -97,9 +108,9 @@ export const WhiteboardRoomPage: React.FC = () => {
     loadCanvasData,
   } = useWhiteboard({
     canvasElementId: 'meetdraw-canvas',
-    userId: selfPeerId || 'local-user',
-    username: displayName,
-    userColor,
+    userId: actualUserId,
+    username: actualUsername,
+    userColor: actualColor,
   });
 
   // 5. WebRTC Mesh (P2P DataChannel & MediaStream)
@@ -109,7 +120,26 @@ export const WhiteboardRoomPage: React.FC = () => {
     chatMessages,
     activePeersCount,
     sendChatMessage,
-  } = useWebRTC(roomId, applyRemoteEvent);
+  } = useWebRTC(roomId, applyRemoteEvent, localStream);
+
+  // Auto-unlock browser audio autoplay policies on first click or keypress
+  useEffect(() => {
+    const unlockAudio = () => {
+      document.querySelectorAll('audio').forEach((el) => {
+        if (el.paused && el.srcObject) {
+          el.play().catch(() => {});
+        }
+      });
+    };
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('keydown', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+  }, []);
 
   // Global Keyboard Shortcuts [W] and [S] (FR-05)
   useEffect(() => {
@@ -178,7 +208,7 @@ export const WhiteboardRoomPage: React.FC = () => {
       question,
       options: options.map((opt, i) => ({ id: `opt_${i}`, text: opt, votes: 0 })),
       totalVotes: 0,
-      creatorName: displayName,
+      creatorName: actualUsername,
       isActive: true,
       votedUserIds: [],
     };
@@ -224,8 +254,8 @@ export const WhiteboardRoomPage: React.FC = () => {
         roomName={roomDetails?.name || `Room ${roomId}`}
         connectedPeersCount={activePeersCount}
         isWsConnected={isWsConnected}
-        displayName={displayName}
-        userColor={userColor}
+        displayName={actualUsername}
+        userColor={actualColor}
         activeView={activeView}
         setActiveView={setActiveView}
         onLeaveRoom={handleLeave}
@@ -397,6 +427,25 @@ export const WhiteboardRoomPage: React.FC = () => {
           onExportImage={handleExportImage}
           activePollsCount={polls.length}
         />
+      </div>
+
+      {/* Persistent Global Remote Audio Pool (Guarantees voice transmission regardless of drawer/view state) */}
+      <div className="hidden pointer-events-none" aria-hidden="true">
+        {Array.from(remoteStreams.entries()).map(([peerId, rStream]) => (
+          <audio
+            key={peerId}
+            autoPlay
+            playsInline
+            ref={(el) => {
+              if (el && el.srcObject !== rStream) {
+                el.srcObject = rStream;
+                el.play().catch((err) => {
+                  console.warn(`[Audio] Autoplay for peer ${peerId} waiting for gesture:`, err);
+                });
+              }
+            }}
+          />
+        ))}
       </div>
     </div>
   );

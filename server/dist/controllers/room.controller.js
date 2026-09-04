@@ -52,5 +52,31 @@ class RoomController {
             return res.status(500).json({ message: err.message || 'Failed to get snapshot' });
         }
     }
+    static async getMyRooms(req, res) {
+        try {
+            const userId = req.user?.id;
+            if (!userId) {
+                return res.status(401).json({ message: 'Authentication required' });
+            }
+            const rooms = await room_service_1.RoomService.getUserRooms(userId);
+            return res.status(200).json(rooms);
+        }
+        catch (err) {
+            return res.status(500).json({ message: err.message || 'Failed to fetch user rooms' });
+        }
+    }
+    static async join(req, res) {
+        try {
+            const roomId = req.params.id;
+            const userId = req.user?.id;
+            if (userId) {
+                await room_service_1.RoomService.joinRoom(roomId, userId);
+            }
+            return res.status(200).json({ success: true });
+        }
+        catch (err) {
+            return res.status(500).json({ message: err.message || 'Failed to join room' });
+        }
+    }
 }
 exports.RoomController = RoomController;

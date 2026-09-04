@@ -104,6 +104,16 @@ class ApiService {
   async getSnapshot(roomId: string): Promise<{ data: string | null }> {
     return this.request<{ data: string | null }>(`/rooms/${roomId}/snapshot`);
   }
+
+  async getMyRooms(): Promise<RoomDetails[]> {
+    return this.request<RoomDetails[]>('/rooms/user/history');
+  }
+
+  async joinRoom(roomId: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/rooms/${roomId}/join`, {
+      method: 'POST',
+    });
+  }
 }
 
 export const apiService = new ApiService();

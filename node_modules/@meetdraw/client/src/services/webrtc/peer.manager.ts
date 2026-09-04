@@ -39,6 +39,12 @@ export class PeerManager {
     this.roomId = roomId;
     this.listeners = listeners;
     this.bindSignaling();
+
+    // Automatically push tracks to peers whenever local stream is acquired or updated
+    const unsubStream = mediaStreamManager.onStreamUpdated((stream) => {
+      this.updateLocalStream(stream);
+    });
+    this.unsubscribers.push(unsubStream);
   }
 
   private bindSignaling() {

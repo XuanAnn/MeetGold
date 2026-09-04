@@ -23,6 +23,14 @@ export class SinglePeerConnection {
     this.callbacks = callbacks;
     this.pc = new RTCPeerConnection(config || DEFAULT_RTC_CONFIGURATION);
 
+    // Pre-allocate audio & video transceivers to ensure SDP always includes m=audio and m=video
+    try {
+      this.pc.addTransceiver('audio', { direction: 'sendrecv' });
+      this.pc.addTransceiver('video', { direction: 'sendrecv' });
+    } catch (e) {
+      this.log.warn('addTransceiver not supported or failed:', e);
+    }
+
     this.bindEvents();
   }
 
@@ -41,13 +49,19 @@ export class SinglePeerConnection {
 
     this.pc.ontrack = (event) => {
       this.log.info(`Received remote track (${event.track.kind}) from ${this.peerId}`);
-      event.streams[0]?.getTracks().forEach((track) => {
-        this.remoteStream.addTrack(track);
-      });
-      // In case no stream wrapper provided:
-      if (event.streams.length === 0) {
+      if (event.streams && event.streams[0]) {
+        event.streams[0].getTracks().forEach((track) => {
+          if (!this.remoteStream.getTracks().some((t) => t.id === track.id)) {
+            this.remoteStream.addTrack(track);
+          }
+        });
+      }
+      if (!this.remoteStream.getTracks().some((t) => t.id === event.track.id)) {
         this.remoteStream.addTrack(event.track);
       }
+      event.track.onunmute = () => {
+        this.callbacks.onTrack(this.peerId, this.remoteStream);
+      };
       this.callbacks.onTrack(this.peerId, this.remoteStream);
     };
 
@@ -75,23 +89,52 @@ export class SinglePeerConnection {
   }
 
   addLocalStream(stream: MediaStream) {
+    const transceivers = this.pc.getTransceivers ? this.pc.getTransceivers() : [];
+    const senders = this.pc.getSenders ? this.pc.getSenders() : [];
+
     stream.getTracks().forEach((track) => {
       try {
+        // Try assigning to existing transceiver
+        const transceiver = transceivers.find(
+          (t) => t.sender?.track?.kind === track.kind || t.receiver?.track?.kind === track.kind
+        );
+        if (transceiver && transceiver.sender) {
+          transceiver.sender.replaceTrack(track);
+          this.log.info(`Assigned ${track.kind} track to transceiver for peer ${this.peerId}`);
+          return;
+        }
+
+        // Try replacing on existing sender
+        const sender = senders.find((s) => s.track?.kind === track.kind);
+        if (sender) {
+          sender.replaceTrack(track);
+          this.log.info(`Replaced ${track.kind} track on sender for peer ${this.peerId}`);
+          return;
+        }
+
+        // Otherwise addTrack
         this.pc.addTrack(track, stream);
+        this.log.info(`Added ${track.kind} track for peer ${this.peerId}`);
       } catch (err) {
-        this.log.warn(`Could not add track ${track.kind}:`, err);
+        this.log.warn(`Could not add/replace track ${track.kind}:`, err);
       }
     });
   }
 
   async createOffer(): Promise<RTCSessionDescriptionInit> {
-    const offer = await this.pc.createOffer();
+    const offer = await this.pc.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: true,
+    });
     await this.pc.setLocalDescription(offer);
     return offer;
   }
 
   async createAnswer(): Promise<RTCSessionDescriptionInit> {
-    const answer = await this.pc.createAnswer();
+    const answer = await this.pc.createAnswer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: true,
+    });
     await this.pc.setLocalDescription(answer);
     return answer;
   }

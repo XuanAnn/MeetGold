@@ -1,5 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { UserProvider } from './stores/user.store';
+import { ProtectedRoute } from './components/Auth/ProtectedRoute';
 import { DashboardPage } from './pages/Dashboard/DashboardPage';
 import { GreenRoomPage } from './pages/GreenRoom/GreenRoomPage';
 import { WhiteboardRoomPage } from './pages/WhiteboardRoom/WhiteboardRoomPage';
@@ -11,30 +13,75 @@ import { SettingsPage } from './pages/Settings/SettingsPage';
 
 export const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Screen 1: Dashboard Hub */}
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
+    <UserProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public Authentication Routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-        {/* Screen 2: Green Room / Pre-Call Check */}
-        <Route path="/green-room/:id" element={<GreenRoomPage />} />
+          {/* Protected Routes (Requires Login Authentication via MySQL) */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/green-room/:id"
+            element={
+              <ProtectedRoute>
+                <GreenRoomPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/room/:id"
+            element={
+              <ProtectedRoute>
+                <WhiteboardRoomPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/summary/:id"
+            element={
+              <ProtectedRoute>
+                <PostMeetingSummaryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/history"
+            element={
+              <ProtectedRoute>
+                <ProjectHistoryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Screen 3 & 4: Whiteboard Canvas, Screen Share & Discussion */}
-        <Route path="/room/:id" element={<WhiteboardRoomPage />} />
-
-        {/* Screen 5: Post-Meeting Archive & AI Summary */}
-        <Route path="/summary/:id" element={<PostMeetingSummaryPage />} />
-
-        {/* Additional Auth & Setting Routes */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/history" element={<ProjectHistoryPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </UserProvider>
   );
 };
 

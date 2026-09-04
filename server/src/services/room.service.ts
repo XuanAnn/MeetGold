@@ -31,4 +31,12 @@ export class RoomService {
   static async getWhiteboardSnapshot(roomId: string): Promise<string | null> {
     return RoomModel.getLatestSnapshot(roomId);
   }
+
+  static async getUserRooms(userId: string): Promise<RoomDetails[]> {
+    return RoomModel.findUserRooms(userId);
+  }
+
+  static async joinRoom(roomId: string, userId: string): Promise<void> {
+    await RoomModel.addMember(roomId, userId);
+  }
 }

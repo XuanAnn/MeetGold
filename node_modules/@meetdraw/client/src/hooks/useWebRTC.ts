@@ -12,7 +12,8 @@ import { RemotePeerState, WebRTCConnectionState } from '../types';
 
 export function useWebRTC(
   roomId: string,
-  onRemoteWhiteboardEvent?: (event: WhiteboardEvent) => void
+  onRemoteWhiteboardEvent?: (event: WhiteboardEvent) => void,
+  localStream?: MediaStream | null
 ) {
   const [remotePeers, setRemotePeers] = useState<Map<string, RemotePeerState>>(new Map());
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
@@ -21,6 +22,13 @@ export function useWebRTC(
 
   const onRemoteWhiteboardRef = useRef(onRemoteWhiteboardEvent);
   onRemoteWhiteboardRef.current = onRemoteWhiteboardEvent;
+
+  // Whenever localStream updates, push to all active WebRTC peers
+  useEffect(() => {
+    if (localStream) {
+      peerManager.updateLocalStream(localStream);
+    }
+  }, [localStream]);
 
   useEffect(() => {
     if (!roomId) return;

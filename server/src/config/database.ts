@@ -1,4 +1,6 @@
 import mysql from 'mysql2/promise';
+import bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 import { ENV } from './env';
 
 let pool: mysql.Pool | null = null;
@@ -6,16 +8,20 @@ let isConnected = false;
 
 export async function initDatabase(): Promise<boolean> {
   try {
-    // 1. Try to connect to MySQL server without DB first to ensure DB exists
+    console.log(`[Database] Connecting to Docker MySQL at ${ENV.DB.HOST}:${ENV.DB.PORT} with user '${ENV.DB.USER}'...`);
+
+    // 1. Connect to MySQL server to ensure DB exists
     const adminConnection = await mysql.createConnection({
       host: ENV.DB.HOST,
       port: ENV.DB.PORT,
       user: ENV.DB.USER,
       password: ENV.DB.PASSWORD,
-      connectTimeout: 3000,
+      connectTimeout: 5000,
     });
 
-    await adminConnection.query(`CREATE DATABASE IF NOT EXISTS \`${ENV.DB.NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+    await adminConnection.query(
+      `CREATE DATABASE IF NOT EXISTS \`${ENV.DB.NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+    );
     await adminConnection.end();
 
     // 2. Create pool connected to the database
@@ -35,11 +41,14 @@ export async function initDatabase(): Promise<boolean> {
     // 3. Create tables if not exist
     await createTables(pool);
 
+    // 4. Seed demo users into MySQL
+    await seedDemoUsers(pool);
+
     isConnected = true;
-    console.log(`[Database] Successfully connected to MySQL database: ${ENV.DB.NAME}`);
+    console.log(`[Database] ✅ Successfully connected to Docker MySQL database: ${ENV.DB.NAME} on port ${ENV.DB.PORT}`);
     return true;
   } catch (error: any) {
-    console.warn(`[Database] MySQL connection failed (${error.message}). Running with in-memory fallback store.`);
+    console.warn(`[Database] ⚠️ MySQL connection failed (${error.message}). Running with in-memory fallback store.`);
     isConnected = false;
     return false;
   }
@@ -61,7 +70,8 @@ async function createTables(pool: mysql.Pool): Promise<void> {
       name VARCHAR(255) NOT NULL,
       owner_id VARCHAR(36) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_owner (owner_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
     `CREATE TABLE IF NOT EXISTS room_members (
@@ -69,19 +79,61 @@ async function createTables(pool: mysql.Pool): Promise<void> {
       room_id VARCHAR(36) NOT NULL,
       user_id VARCHAR(36) NOT NULL,
       joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY unique_room_user (room_id, user_id)
+      UNIQUE KEY unique_room_user (room_id, user_id),
+      INDEX idx_room (room_id),
+      INDEX idx_user (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
     `CREATE TABLE IF NOT EXISTS whiteboard_snapshots (
       id VARCHAR(36) PRIMARY KEY,
       room_id VARCHAR(36) NOT NULL,
       data LONGTEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_room_snapshots (room_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
   ];
 
   for (const q of queries) {
     await pool.query(q);
+  }
+}
+
+async function seedDemoUsers(pool: mysql.Pool): Promise<void> {
+  const demoUsers = [
+    {
+      username: 'Alex (Tech Lead)',
+      email: 'alex@meetdraw.io',
+      password: 'password123',
+    },
+    {
+      username: 'Chloe (UI/UX)',
+      email: 'chloe@meetdraw.io',
+      password: 'password123',
+    },
+    {
+      username: 'Sarah (NetOps)',
+      email: 'sarah@meetdraw.io',
+      password: 'password123',
+    },
+    {
+      username: 'Admin',
+      email: 'admin@meetdraw.io',
+      password: 'password123',
+    },
+  ];
+
+  for (const u of demoUsers) {
+    const [rows]: any = await pool.query('SELECT id FROM users WHERE email = ?', [u.email]);
+    if (rows.length === 0) {
+      const salt = await bcrypt.genSalt(10);
+      const hash = await bcrypt.hash(u.password, salt);
+      const id = uuidv4();
+      await pool.query(
+        'INSERT INTO users (id, username, email, password_hash, created_at) VALUES (?, ?, ?, ?, NOW())',
+        [id, u.username, u.email, hash]
+      );
+      console.log(`[Database] Seeded demo user: ${u.email} (pass: ${u.password})`);
+    }
   }
 }
 

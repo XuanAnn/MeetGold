@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Video,
@@ -17,9 +17,12 @@ import {
   ExternalLink,
   Shield,
   Palette,
+  LogOut,
+  Database,
 } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { useUserStore } from '../../stores/user.store';
+import { RoomDetails } from '@meetdraw/shared';
 
 interface ScheduledMeeting {
   id: string;
@@ -41,7 +44,10 @@ interface RecentBoard {
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { displayName, userColor, currentUser } = useUserStore();
+  const { displayName, userColor, currentUser, logout } = useUserStore();
+
+  const [realRooms, setRealRooms] = useState<RoomDetails[]>([]);
+  const [isLoadingRooms, setIsLoadingRooms] = useState(true);
 
   const [joinInput, setJoinInput] = useState('');
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
@@ -49,6 +55,23 @@ export const DashboardPage: React.FC = () => {
   const [scheduleDate, setScheduleDate] = useState('2026-09-05');
   const [scheduleTime, setScheduleTime] = useState('10:00');
   const [scheduledSuccess, setScheduledSuccess] = useState(false);
+
+  // Fetch real rooms from MySQL on mount
+  useEffect(() => {
+    apiService
+      .getMyRooms()
+      .then((rooms) => {
+        if (Array.isArray(rooms)) {
+          setRealRooms(rooms);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load user rooms from MySQL:', err);
+      })
+      .finally(() => {
+        setIsLoadingRooms(false);
+      });
+  }, []);
 
   // Mocked rich schedule list matching PRD
   const [meetings, setMeetings] = useState<ScheduledMeeting[]>([
@@ -190,6 +213,11 @@ export const DashboardPage: React.FC = () => {
 
         {/* Right User & Actions */}
         <div className="flex items-center space-x-3">
+          <div className="hidden sm:flex items-center space-x-1.5 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-full text-[11px] text-emerald-active font-medium">
+            <Database size={12} />
+            <span>MySQL Docker</span>
+          </div>
+
           <button
             onClick={() => navigate('/settings')}
             className="p-2 text-slate-400 hover:text-slate-200 rounded-xl hover:bg-navy-850 transition"
@@ -200,18 +228,30 @@ export const DashboardPage: React.FC = () => {
 
           <div className="flex items-center space-x-2.5 pl-2 border-l border-navy-800">
             <div
-              className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white text-xs shadow-md"
+              className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white text-xs shadow-md ring-1 ring-white/20"
               style={{ backgroundColor: userColor }}
             >
               {displayName.charAt(0).toUpperCase()}
             </div>
             <div className="hidden sm:block text-left text-xs">
-              <div className="font-semibold text-slate-200 leading-tight">{displayName}</div>
-              <div className="text-[10px] text-emerald-active flex items-center space-x-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-active animate-pulse" />
-                <span>Available</span>
+              <div className="font-semibold text-slate-200 leading-tight flex items-center space-x-1.5">
+                <span>{displayName}</span>
+              </div>
+              <div className="text-[10px] text-slate-400 truncate max-w-[120px]">
+                {currentUser?.email || 'Logged in'}
               </div>
             </div>
+
+            <button
+              onClick={() => {
+                logout();
+                navigate('/login');
+              }}
+              className="ml-2 p-2 text-slate-400 hover:text-rose-alert hover:bg-navy-850 rounded-xl transition"
+              title="Log out"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
       </header>
@@ -461,6 +501,12 @@ export const DashboardPage: React.FC = () => {
             <div className="flex items-center space-x-2">
               <Layers size={18} className="text-indigo-light" />
               <h2 className="text-base font-bold text-white">Recent Spatial Whiteboards</h2>
+              {realRooms.length > 0 && (
+                <span className="text-[11px] bg-emerald-500/20 text-emerald-active border border-emerald-500/40 px-2 py-0.5 rounded-full font-medium flex items-center space-x-1">
+                  <Database size={10} />
+                  <span>{realRooms.length} Synced to MySQL</span>
+                </span>
+              )}
             </div>
             <button
               onClick={handleNewWhiteboard}
@@ -472,44 +518,94 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {recentBoards.map((board) => (
-              <div
-                key={board.id}
-                onClick={() => navigate(`/room/${board.id}`)}
-                className="glass-card hover:border-navy-600 rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 group hover:-translate-y-1"
-              >
-                <div className={`h-32 bg-gradient-to-br ${board.thumbnailColor} p-4 flex flex-col justify-between relative border-b border-navy-800`}>
-                  <div className="flex justify-between items-start">
-                    <span className="text-[10px] bg-navy-950/80 text-slate-300 px-2 py-0.5 rounded-full border border-navy-800">
-                      Spatial Vector
-                    </span>
-                    <div className="w-6 h-6 rounded-lg bg-navy-950/60 flex items-center justify-center text-slate-400 group-hover:text-white">
-                      <ExternalLink size={12} />
+            {realRooms.length > 0 ? (
+              realRooms.map((room, idx) => (
+                <div
+                  key={room.id}
+                  onClick={() => navigate(`/room/${room.id}`)}
+                  className="glass-card hover:border-indigo-light/60 rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 group hover:-translate-y-1 relative"
+                >
+                  <div
+                    className={`h-32 bg-gradient-to-br ${
+                      idx % 3 === 0
+                        ? 'from-indigo-900/60 to-navy-900'
+                        : idx % 3 === 1
+                        ? 'from-cyan-900/60 to-navy-900'
+                        : 'from-purple-900/60 to-navy-900'
+                    } p-4 flex flex-col justify-between relative border-b border-navy-800`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] bg-navy-950/80 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30 flex items-center space-x-1">
+                        <Database size={9} />
+                        <span>Live MySQL</span>
+                      </span>
+                      <div className="w-6 h-6 rounded-lg bg-navy-950/60 flex items-center justify-center text-slate-400 group-hover:text-white">
+                        <ExternalLink size={12} />
+                      </div>
+                    </div>
+
+                    {/* Wireframe diagram preview graphic */}
+                    <div className="opacity-30 group-hover:opacity-60 transition flex items-center space-x-3">
+                      <div className="w-12 h-8 rounded border border-white/60" />
+                      <div className="h-[1px] w-6 bg-white/60" />
+                      <div className="w-8 h-8 rounded-full border border-white/60" />
                     </div>
                   </div>
 
-                  {/* Wireframe diagram preview graphic */}
-                  <div className="opacity-30 group-hover:opacity-60 transition flex items-center space-x-3">
-                    <div className="w-12 h-8 rounded border border-white/60" />
-                    <div className="h-[1px] w-6 bg-white/60" />
-                    <div className="w-8 h-8 rounded-full border border-white/60" />
+                  <div className="p-4 space-y-2">
+                    <h4 className="text-xs font-bold text-white truncate group-hover:text-indigo-light transition">
+                      {room.name}
+                    </h4>
+                    <div className="flex items-center justify-between text-[11px] text-slate-400">
+                      <span>Room: <code className="font-mono text-slate-300">{room.id}</code></span>
+                      <span className="flex items-center space-x-1">
+                        <Users size={11} />
+                        <span>{room.memberCount || 1} peer{room.memberCount !== 1 ? 's' : ''}</span>
+                      </span>
+                    </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              recentBoards.map((board) => (
+                <div
+                  key={board.id}
+                  onClick={() => navigate(`/room/${board.id}`)}
+                  className="glass-card hover:border-navy-600 rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 group hover:-translate-y-1"
+                >
+                  <div className={`h-32 bg-gradient-to-br ${board.thumbnailColor} p-4 flex flex-col justify-between relative border-b border-navy-800`}>
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] bg-navy-950/80 text-slate-300 px-2 py-0.5 rounded-full border border-navy-800">
+                        Spatial Vector
+                      </span>
+                      <div className="w-6 h-6 rounded-lg bg-navy-950/60 flex items-center justify-center text-slate-400 group-hover:text-white">
+                        <ExternalLink size={12} />
+                      </div>
+                    </div>
 
-                <div className="p-4 space-y-2">
-                  <h4 className="text-xs font-bold text-white truncate group-hover:text-indigo-light transition">
-                    {board.title}
-                  </h4>
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
-                    <span>Modified {board.updatedAt}</span>
-                    <span className="flex items-center space-x-1">
-                      <Users size={11} />
-                      <span>{board.collaborators} peers</span>
-                    </span>
+                    {/* Wireframe diagram preview graphic */}
+                    <div className="opacity-30 group-hover:opacity-60 transition flex items-center space-x-3">
+                      <div className="w-12 h-8 rounded border border-white/60" />
+                      <div className="h-[1px] w-6 bg-white/60" />
+                      <div className="w-8 h-8 rounded-full border border-white/60" />
+                    </div>
+                  </div>
+
+                  <div className="p-4 space-y-2">
+                    <h4 className="text-xs font-bold text-white truncate group-hover:text-indigo-light transition">
+                      {board.title}
+                    </h4>
+                    <div className="flex items-center justify-between text-[11px] text-slate-400">
+                      <span>Modified {board.updatedAt}</span>
+                      <span className="flex items-center space-x-1">
+                        <Users size={11} />
+                        <span>{board.collaborators} peers</span>
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </main>

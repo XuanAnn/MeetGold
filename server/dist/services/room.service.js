@@ -26,5 +26,11 @@ class RoomService {
     static async getWhiteboardSnapshot(roomId) {
         return room_model_1.RoomModel.getLatestSnapshot(roomId);
     }
+    static async getUserRooms(userId) {
+        return room_model_1.RoomModel.findUserRooms(userId);
+    }
+    static async joinRoom(roomId, userId) {
+        await room_model_1.RoomModel.addMember(roomId, userId);
+    }
 }
 exports.RoomService = RoomService;

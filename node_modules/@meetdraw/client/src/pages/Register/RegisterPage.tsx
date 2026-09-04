@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { UserPlus, ArrowLeft } from 'lucide-react';
-import { apiService } from '../../services/api';
-import { useUserStore } from '../../stores/user.store';
+import { UserPlus, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { useUser } from '../../stores/user.store';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { setCurrentUser } = useUserStore();
+  const { register } = useUser();
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -20,94 +19,93 @@ export const RegisterPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const res = await apiService.register({ username, email, password });
-      setCurrentUser(res.user);
-      navigate('/');
+      await register({ username, email, password });
+      navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Registration failed');
+      setError(err.message || 'Registration failed. Please check your information.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col justify-center items-center px-4">
-      <div className="w-full max-w-md bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl">
+    <div className="min-h-screen bg-navy-950 text-slate-100 flex flex-col justify-center items-center px-4 font-sans">
+      <div className="w-full max-w-md glass-panel border border-navy-800 p-8 rounded-3xl shadow-2xl space-y-6">
         <Link
-          to="/"
-          className="inline-flex items-center space-x-1.5 text-xs text-gray-400 hover:text-gray-200 mb-6 transition"
+          to="/login"
+          className="inline-flex items-center space-x-1.5 text-xs text-slate-400 hover:text-white transition"
         >
           <ArrowLeft size={14} />
-          <span>Back to Home</span>
+          <span>Back to Sign In</span>
         </Link>
 
-        <div className="flex items-center space-x-2.5 mb-6">
-          <div className="w-9 h-9 rounded-xl bg-sky-500 flex items-center justify-center font-black text-white">
-            ND
+        <div className="flex items-center space-x-2.5">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-accent to-indigo-light flex items-center justify-center font-black text-white shadow-lg shadow-indigo-accent/30">
+            MD
           </div>
           <div>
-            <h2 className="text-xl font-bold text-white">Create Account</h2>
-            <p className="text-xs text-gray-400">Join NowaDraw collaborative meetings</p>
+            <h2 className="text-xl font-extrabold text-white">Create Account</h2>
+            <p className="text-xs text-slate-400">Stores identity directly into Docker MySQL</p>
           </div>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-400">
+          <div className="p-3 bg-rose-alert/15 border border-rose-alert/30 rounded-xl text-xs text-rose-alert font-medium">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1">Username</label>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
             <input
               type="text"
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="johndoe"
-              className="w-full bg-gray-800 text-gray-100 text-sm px-3.5 py-2.5 rounded-xl border border-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              placeholder="Alex Walker"
+              className="w-full bg-navy-900 text-slate-100 text-xs px-3.5 py-2.5 rounded-xl border border-navy-700 focus:outline-none focus:border-indigo-light"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1">Email</label>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-              className="w-full bg-gray-800 text-gray-100 text-sm px-3.5 py-2.5 rounded-xl border border-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              placeholder="alex@meetdraw.io"
+              className="w-full bg-navy-900 text-slate-100 text-xs px-3.5 py-2.5 rounded-xl border border-navy-700 focus:outline-none focus:border-indigo-light"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1">Password</label>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
             <input
               type="password"
               required
               minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="•••••••• (min 6 characters)"
-              className="w-full bg-gray-800 text-gray-100 text-sm px-3.5 py-2.5 rounded-xl border border-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              placeholder="•••••••• (minimum 6 characters)"
+              className="w-full bg-navy-900 text-slate-100 text-xs px-3.5 py-2.5 rounded-xl border border-navy-700 focus:outline-none focus:border-indigo-light"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-sky-500 hover:bg-sky-600 font-semibold text-white text-sm py-2.5 rounded-xl transition shadow-lg shadow-sky-500/20 flex items-center justify-center space-x-2"
+            className="w-full bg-indigo-accent hover:bg-indigo-light font-bold text-white text-xs py-3 rounded-xl transition shadow-xl shadow-indigo-accent/30 flex items-center justify-center space-x-2"
           >
-            <UserPlus size={16} />
-            <span>{loading ? 'Creating Account...' : 'Sign Up'}</span>
+            <UserPlus size={15} />
+            <span>{loading ? 'Creating in MySQL...' : 'Sign Up & Continue'}</span>
           </button>
         </form>
 
-        <div className="mt-6 text-center text-xs text-gray-400">
+        <div className="text-center text-xs text-slate-400">
           Already have an account?{' '}
-          <Link to="/login" className="text-sky-400 hover:underline font-medium">
+          <Link to="/login" className="text-indigo-light hover:underline font-semibold">
             Sign In
           </Link>
         </div>

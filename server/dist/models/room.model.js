@@ -62,6 +62,7 @@ class RoomModel {
         const pool = (0, database_1.getDbPool)();
         if (pool) {
             try {
+                await pool.query('INSERT IGNORE INTO rooms (id, name, owner_id, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())', [roomId, `Room ${roomId}`, userId]);
                 await pool.query('INSERT IGNORE INTO room_members (id, room_id, user_id, joined_at) VALUES (UUID(), ?, ?, NOW())', [roomId, userId]);
             }
             catch (err) {
@@ -92,6 +93,7 @@ class RoomModel {
         const pool = (0, database_1.getDbPool)();
         if (pool) {
             try {
+                await pool.query('INSERT IGNORE INTO rooms (id, name, owner_id, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())', [roomId, `Whiteboard ${roomId}`, 'system']);
                 await pool.query('INSERT INTO whiteboard_snapshots (id, room_id, data, created_at) VALUES (UUID(), ?, ?, NOW())', [roomId, data]);
             }
             catch (err) {
@@ -115,6 +117,40 @@ class RoomModel {
             }
         }
         return inMemorySnapshots.get(roomId) || null;
+    }
+    static async findUserRooms(userId) {
+        const pool = (0, database_1.getDbPool)();
+        if (pool) {
+            try {
+                const [rows] = await pool.query(`SELECT r.id, r.name, r.owner_id, r.created_at, u.username as owner_name,
+            (SELECT COUNT(*) FROM room_members rm WHERE rm.room_id = r.id) as member_count
+           FROM rooms r
+           LEFT JOIN users u ON r.owner_id = u.id
+           WHERE r.owner_id = ? OR r.id IN (SELECT room_id FROM room_members WHERE user_id = ?)
+           ORDER BY r.created_at DESC LIMIT 20`, [userId, userId]);
+                return rows.map((r) => ({
+                    id: r.id,
+                    name: r.name,
+                    ownerId: r.owner_id,
+                    ownerName: r.owner_name || 'Host',
+                    createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+                    memberCount: parseInt(r.member_count || '0', 10),
+                }));
+            }
+            catch (err) {
+                console.error('[RoomModel.findUserRooms] DB Error:', err);
+            }
+        }
+        return Array.from(inMemoryRooms.values())
+            .filter((r) => r.ownerId === userId)
+            .map((r) => ({
+            id: r.id,
+            name: r.name,
+            ownerId: r.ownerId,
+            ownerName: r.ownerName || 'Host',
+            createdAt: r.createdAt,
+            memberCount: 1,
+        }));
     }
 }
 exports.RoomModel = RoomModel;

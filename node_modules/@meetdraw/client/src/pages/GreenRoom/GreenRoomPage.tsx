@@ -14,12 +14,12 @@ import {
   ArrowLeft,
   Check,
 } from 'lucide-react';
-import { useUserStore } from '../../stores/user.store';
+import { useUser } from '../../stores/user.store';
 
 export const GreenRoomPage: React.FC = () => {
   const { id: roomId = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { displayName, updateGuestName, userColor, setUserColor } = useUserStore();
+  const { displayName, userColor, currentUser } = useUser();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -282,17 +282,27 @@ export const GreenRoomPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Name & Color */}
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Display Name</label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => updateGuestName(e.target.value)}
-                className="w-full bg-navy-900 border border-navy-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-light"
-              />
+          {/* Authenticated User Identity */}
+          <div className="p-3 bg-navy-900/90 rounded-xl border border-navy-700/80 flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-white text-sm shadow-md"
+                style={{ backgroundColor: userColor }}
+              >
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div className="text-xs font-bold text-white">{displayName}</div>
+                <div className="text-[11px] text-slate-400">{currentUser?.email}</div>
+              </div>
             </div>
+            <span className="text-[10px] bg-emerald-500/20 text-emerald-active px-2 py-0.5 rounded-full font-semibold border border-emerald-500/30 flex items-center space-x-1">
+              <Check size={10} />
+              <span>Verified MySQL</span>
+            </span>
+          </div>
+
+          <div className="space-y-3">
 
             {/* Peripheral Dropdowns */}
             <div>

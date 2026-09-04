@@ -51,4 +51,30 @@ export class RoomController {
       return res.status(500).json({ message: err.message || 'Failed to get snapshot' });
     }
   }
+
+  static async getMyRooms(req: AuthenticatedRequest, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      const rooms = await RoomService.getUserRooms(userId);
+      return res.status(200).json(rooms);
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message || 'Failed to fetch user rooms' });
+    }
+  }
+
+  static async join(req: AuthenticatedRequest, res: Response) {
+    try {
+      const roomId = req.params.id as string;
+      const userId = req.user?.id;
+      if (userId) {
+        await RoomService.joinRoom(roomId, userId);
+      }
+      return res.status(200).json({ success: true });
+    } catch (err: any) {
+      return res.status(500).json({ message: err.message || 'Failed to join room' });
+    }
+  }
 }
