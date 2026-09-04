@@ -1,0 +1,72 @@
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
+import { UserModel, UserRecord } from '../models/user.model';
+import { ENV } from '../config/env';
+import { RegisterDto, LoginDto, AuthResponse, User } from '@meetdraw/shared';
+
+export class AuthService {
+  static async register(dto: RegisterDto): Promise<AuthResponse> {
+    const existing = await UserModel.findByEmail(dto.email);
+    if (existing) {
+      throw new Error('Email is already in use');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(dto.password, salt);
+
+    const newUser: UserRecord = {
+      id: uuidv4(),
+      username: dto.username.trim(),
+      email: dto.email.trim().toLowerCase(),
+      password_hash: passwordHash,
+      createdAt: new Date().toISOString(),
+    };
+
+    await UserModel.create(newUser);
+
+    const user: User = {
+      id: newUser.id,
+      username: newUser.username,
+      email: newUser.email,
+      createdAt: newUser.createdAt,
+    };
+
+    const token = this.generateToken(user);
+    return { token, user };
+  }
+
+  static async login(dto: LoginDto): Promise<AuthResponse> {
+    const userRecord = await UserModel.findByEmail(dto.email);
+    if (!userRecord) {
+      throw new Error('Invalid email or password');
+    }
+
+    const isMatch = await bcrypt.compare(dto.password, userRecord.password_hash);
+    if (!isMatch) {
+      throw new Error('Invalid email or password');
+    }
+
+    const user: User = {
+      id: userRecord.id,
+      username: userRecord.username,
+      email: userRecord.email,
+      createdAt: userRecord.createdAt,
+    };
+
+    const token = this.generateToken(user);
+    return { token, user };
+  }
+
+  static generateToken(user: User): string {
+    return jwt.sign(
+      { id: user.id, username: user.username, email: user.email },
+      ENV.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+  }
+
+  static verifyToken(token: string): any {
+    return jwt.verify(token, ENV.JWT_SECRET);
+  }
+}

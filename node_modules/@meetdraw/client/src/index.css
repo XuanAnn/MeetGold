@@ -1,0 +1,63 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background-color: #0a0e18;
+  color: #f1f5f9;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism surfaces */
+.glass-panel {
+  background: rgba(15, 19, 29, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-card {
+  background: rgba(23, 27, 38, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f131d;
+}
+::-webkit-scrollbar-thumb {
+  background: #23293a;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #333b52;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(79, 70, 229, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(99, 102, 241, 0.7);
+  }
+}
+
+.glow-indigo {
+  animation: pulse-glow 3s infinite;
+}
